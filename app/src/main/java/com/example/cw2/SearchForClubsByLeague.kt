@@ -35,6 +35,7 @@ import java.io.BufferedReader
 import java.io.InputStreamReader
 import java.net.HttpURLConnection
 import java.net.URL
+import java.net.URLEncoder
 
 
 class SearchForClubsByLeague : ComponentActivity() {
@@ -46,6 +47,10 @@ class SearchForClubsByLeague : ComponentActivity() {
     }
 }
 
+/**
+ * Composable function to display the GUI.
+ */
+
 @Composable
 fun GUI() {
     var clubInfoDisplay by rememberSaveable { mutableStateOf("") }
@@ -56,25 +61,28 @@ fun GUI() {
         modifier = Modifier.fillMaxSize(),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
+        // Text field to enter the football league name
         TextField(
             value = leagueName,
             onValueChange = { leagueName = it },
             label = { Text("Enter Football League Name") }
         )
+        // Row containing buttons of Retrieve clubs and Save Clubs to Database
         Row {
-            Button(onClick = {
+            Button(onClick = {  // Button to retrieve clubs
                 scope.launch {
                     clubInfoDisplay = fetchClubs(leagueName)
                 }
             }) {
                 Text("Retrieve Clubs")
             }
-            Button(onClick = {
-                // Save clubs to database logic can be added here
+            Button(onClick = { // Button to save clubs to the database
+                // Save clubs to database logic to be implemented
             }) {
                 Text("Save Clubs to Database")
             }
         }
+        // Text to display club information
         Text(
             modifier = Modifier.verticalScroll(rememberScrollState()),
             text = clubInfoDisplay
@@ -83,25 +91,27 @@ fun GUI() {
 }
 
 suspend fun fetchClubs(leagueName: String): String {
-    if (leagueName.isEmpty()) {
+    if (leagueName.isEmpty()) { // Check if the league name is empty
         return "Please enter a football league name."
     }
 
-    val formattedLeagueName = leagueName.replace(" ", "%20")
-    val url_string = "https://www.thesportsdb.com/api/v1/json/3/search_all_teams.php?l=English%20Premier%20League"
+    val formattedLeagueName = URLEncoder.encode(leagueName, "UTF-8") // Format the league name for the URL
+    val url_string = "https://www.thesportsdb.com/api/v1/json/3/search_all_teams.php?l=$formattedLeagueName"
     val url = URL(url_string)
     val con: HttpURLConnection = url.openConnection() as HttpURLConnection
     var clubInfo = StringBuilder()
 
-    try {
+    try { // Perform network operations in a background thread
         withContext(Dispatchers.IO) {
             val bf = BufferedReader(InputStreamReader(con.inputStream))
             val response = bf.use { it.readText() }
             val jsonObject = JSONObject(response)
             val teamsArray = jsonObject.getJSONArray("teams")
 
+            // Iterate through the array of teams
             for (i in 0 until teamsArray.length()) {
                 val team = teamsArray.getJSONObject(i)
+                // Append club information to the StringBuilder
                 clubInfo.append("Club Name: ${team.getString("strTeam")}\n")
                 clubInfo.append("Short Name: ${team.getString("strTeamShort")}\n")
                 clubInfo.append("Alternate Names: ${team.getString("strAlternate")}\n")
