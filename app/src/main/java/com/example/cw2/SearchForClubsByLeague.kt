@@ -1,6 +1,8 @@
 package com.example.cw2
 
+import android.content.Context
 import android.os.Bundle
+import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.layout.fillMaxSize
@@ -27,9 +29,18 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
+import androidx.room.Dao
+import androidx.room.Database
+import androidx.room.Entity
+import androidx.room.Insert
+import androidx.room.OnConflictStrategy
+import androidx.room.PrimaryKey
+import androidx.room.Room
+import androidx.room.RoomDatabase
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import org.json.JSONArray
 import org.json.JSONException
 import org.json.JSONObject
 import java.io.BufferedReader
@@ -37,6 +48,10 @@ import java.io.InputStreamReader
 import java.net.HttpURLConnection
 import java.net.URL
 import java.net.URLEncoder
+import androidx.activity.compose.setContent
+import androidx.compose.ui.platform.LocalContext
+import kotlinx.coroutines.withContext
+
 
 
 class SearchForClubsByLeague : ComponentActivity() {
@@ -102,8 +117,16 @@ fun GUI() {
             }) {
                 Text("Retrieve Clubs")
             }
+
+            // Retrieve the context outside of the coroutine scope
+            val context = LocalContext.current
+
             Button(onClick = { // Button to save clubs to the database
-                // Save clubs to database logic to be implemented
+                //val context = LocalContext.current
+                scope.launch {
+                    saveClubsToDatabase(context, clubInfoDisplay)
+                }
+
             }) {
                 Text("Save Clubs to Database")
             }
@@ -189,3 +212,85 @@ suspend fun fetchClubs(leagueName: String): String {
 
     return allClubs.toString()
 }*/
+
+@Entity(tableName = "clubs")
+data class Club(
+    @PrimaryKey val id: String,
+    val name: String,
+    val shortName: String,
+    val alternateNames: String,
+    val formedYear: String,
+    val league: String,
+    val stadium: String,
+    val keywords: String,
+    val stadiumLocation: String,
+    val stadiumCapacity: String,
+    val website: String,
+    val teamJersey: String,
+    val teamLogo: String
+)
+
+@Dao
+interface ClubDao {
+    @Insert(onConflict = OnConflictStrategy.IGNORE)
+    suspend fun insert(club: Club)
+}
+
+@Database(entities = [Club::class], version = 1)
+abstract class ClubDatabase : RoomDatabase() {
+    abstract fun clubDao(): ClubDao
+}
+
+suspend fun saveClubsToDatabase(context: Context, leagueName: String) {
+    if (leagueName.isEmpty()) {
+        Log.e("SaveClubsToDatabase", "League name is empty.")
+        return
+    }
+
+    val formattedLeagueName = URLEncoder.encode(leagueName, "UTF-8")
+    val url = URL("https://www.thesportsdb.com/api/v1/json/1/search_all_teams.php?l=$formattedLeagueName")
+    val con: HttpURLConnection = url.openConnection() as HttpURLConnection
+
+    try {
+        withContext(Dispatchers.IO) {
+            val inputStream = con.inputStream
+            val response = inputStream.bufferedReader().use { it.readText() }
+            val jsonObject = JSONObject(response)
+
+            val teamsArray = jsonObject.getJSONArray("teams")
+
+            val database = Room.databaseBuilder(
+                context.applicationContext,
+                ClubDatabase::class.java, "club-database"
+            ).build()
+
+            val clubDao = database.clubDao()
+
+            for (i in 0 until teamsArray.length()) {
+                val team = teamsArray.getJSONObject(i)
+                val club = Club(
+                    id = team.getString("idTeam"),
+                    name = team.getString("strTeam"),
+                    shortName = team.getString("strTeamShort"),
+                    alternateNames = team.getString("strAlternate"),
+                    formedYear = team.getString("intFormedYear"),
+                    league = team.getString("strLeague"),
+                    stadium = team.getString("strStadium"),
+                    keywords = team.getString("strKeywords"),
+                    stadiumLocation = team.getString("strStadiumLocation"),
+                    stadiumCapacity = team.getString("intStadiumCapacity"),
+                    website = team.getString("strWebsite"),
+                    teamJersey = team.getString("strTeamJersey"),
+                    teamLogo = team.getString("strTeamLogo")
+                )
+                clubDao.insert(club)
+            }
+        }
+    } catch (e: JSONException) {
+        Log.e("SaveClubsToDatabase", "Error parsing JSON: ${e.message}")
+    } catch (e: Exception) {
+        Log.e("SaveClubsToDatabase", "Error occurred: ${e.message}")
+    } finally {
+        con.disconnect()
+    }
+}
