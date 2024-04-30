@@ -30,6 +30,7 @@ import androidx.compose.ui.Alignment
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import org.json.JSONException
 import org.json.JSONObject
 import java.io.BufferedReader
 import java.io.InputStreamReader
@@ -57,6 +58,30 @@ fun GUI() {
     var leagueName by rememberSaveable { mutableStateOf("") }
     val scope = rememberCoroutineScope()
 
+    // List of league name suggestions
+    val leagueSuggestions = listOf(
+        "English Premier League",
+        "German Bundesliga",
+        "Scottish Premier League",
+        "Italian Serie A",
+        "Spanish La Liga",
+        "Dutch Eredivisie",
+        "Belgian First Division A",
+        "Turkish Super Lig",
+        "Danish Superliga",
+        "Portuguese Primeira Liga",
+        "American Major League Soccer",
+        "Swedish Allsvenskan",
+        "Australian A-League",
+        "Norwegian Eliteserien",
+        "Chinese Super League",
+        "Mexican Primera League",
+        "Brazilian Serie A",
+        "Russian Football Premier League",
+    )
+    var expanded by remember { mutableStateOf(false) } // State to track dropdown menu visibility
+
+
     Column(
         modifier = Modifier.fillMaxSize(),
         horizontalAlignment = Alignment.CenterHorizontally
@@ -65,7 +90,8 @@ fun GUI() {
         TextField(
             value = leagueName,
             onValueChange = { leagueName = it },
-            label = { Text("Enter Football League Name") }
+            label = { Text("Enter Football League Name") },
+
         )
         // Row containing buttons of Retrieve clubs and Save Clubs to Database
         Row {
@@ -106,6 +132,7 @@ suspend fun fetchClubs(leagueName: String): String {
             val bf = BufferedReader(InputStreamReader(con.inputStream))
             val response = bf.use { it.readText() }
             val jsonObject = JSONObject(response)
+
             val teamsArray = jsonObject.getJSONArray("teams")
 
             // Iterate through the array of teams
@@ -127,6 +154,9 @@ suspend fun fetchClubs(leagueName: String): String {
                 clubInfo.append("\n")
             }
         }
+    } catch (e: JSONException) { // Catch the specific exception for invalid league name
+        return "Please enter a valid football league name." // Prompt user to input correct league name with a message
+
     } catch (e: Exception) {
         e.printStackTrace()
         return "Error occurred: ${e.message}"
