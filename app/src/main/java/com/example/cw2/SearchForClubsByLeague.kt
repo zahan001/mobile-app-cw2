@@ -3,6 +3,7 @@ package com.example.cw2
 import android.content.Context
 import android.os.Bundle
 import android.util.Log
+import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.layout.fillMaxSize
@@ -50,6 +51,8 @@ import java.net.URL
 import java.net.URLEncoder
 import androidx.activity.compose.setContent
 import androidx.compose.ui.platform.LocalContext
+import androidx.lifecycle.LifecycleCoroutineScope
+import androidx.room.Query
 import kotlinx.coroutines.withContext
 
 
@@ -57,8 +60,12 @@ import kotlinx.coroutines.withContext
 class SearchForClubsByLeague : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+
+        // Initialize the database
+        val database = ClubDatabase.getDatabase(applicationContext)
+
         setContent {
-            GUI()
+            GUI(database)
         }
     }
 }
@@ -68,34 +75,10 @@ class SearchForClubsByLeague : ComponentActivity() {
  */
 
 @Composable
-fun GUI() {
+fun GUI(database: ClubDatabase) {
     var clubInfoDisplay by rememberSaveable { mutableStateOf("") }
     var leagueName by rememberSaveable { mutableStateOf("") }
     val scope = rememberCoroutineScope()
-
-    // List of league name suggestions
-    val leagueSuggestions = listOf(
-        "English Premier League",
-        "German Bundesliga",
-        "Scottish Premier League",
-        "Italian Serie A",
-        "Spanish La Liga",
-        "Dutch Eredivisie",
-        "Belgian First Division A",
-        "Turkish Super Lig",
-        "Danish Superliga",
-        "Portuguese Primeira Liga",
-        "American Major League Soccer",
-        "Swedish Allsvenskan",
-        "Australian A-League",
-        "Norwegian Eliteserien",
-        "Chinese Super League",
-        "Mexican Primera League",
-        "Brazilian Serie A",
-        "Russian Football Premier League",
-    )
-    var expanded by remember { mutableStateOf(false) } // State to track dropdown menu visibility
-
 
     Column(
         modifier = Modifier.fillMaxSize(),
@@ -106,7 +89,6 @@ fun GUI() {
             value = leagueName,
             onValueChange = { leagueName = it },
             label = { Text("Enter Football League Name") },
-
         )
         // Row containing buttons of Retrieve clubs and Save Clubs to Database
         Row {
@@ -118,15 +100,22 @@ fun GUI() {
                 Text("Retrieve Clubs")
             }
 
-            // Retrieve the context outside of the coroutine scope
-            val context = LocalContext.current
 
-            Button(onClick = { // Button to save clubs to the database
-                //val context = LocalContext.current
+            val context = LocalContext.current // Retrieve the context
+
+            Button(onClick = {
                 scope.launch {
-                    saveClubsToDatabase(context, clubInfoDisplay)
+                    val clubsList = parseClubInfo(clubInfoDisplay)
+                    if (clubsList.isNotEmpty()){
+                        withContext(Dispatchers.IO){
+                            // Insert all clubs to the database
+                            database.clubDao().insertAll(clubsList)
+                        }
+                        Toast.makeText(context, "Clubs added to DB", Toast.LENGTH_SHORT).show()
+                    } else {
+                        Toast.makeText(context, "No clubs to add", Toast.LENGTH_SHORT).show()
+                    }
                 }
-
             }) {
                 Text("Save Clubs to Database")
             }
@@ -232,65 +221,111 @@ data class Club(
 
 @Dao
 interface ClubDao {
+    @Query("SELECT * FROM clubs")
+    suspend fun getAll(): List<Club>
+
     @Insert(onConflict = OnConflictStrategy.IGNORE)
     suspend fun insert(club: Club)
+
+    @Insert(onConflict = OnConflictStrategy.IGNORE)
+    suspend fun insertAll(clubs: List<Club>)
+
+    @Query("SELECT * FROM clubs WHERE id = :id")
+    suspend fun getClubById(id: String): Club?
 }
+
 
 @Database(entities = [Club::class], version = 1)
 abstract class ClubDatabase : RoomDatabase() {
     abstract fun clubDao(): ClubDao
-}
 
-suspend fun saveClubsToDatabase(context: Context, leagueName: String) {
-    if (leagueName.isEmpty()) {
-        Log.e("SaveClubsToDatabase", "League name is empty.")
-        return
-    }
+    companion object{
+        @Volatile
+        private var INSTANCE: ClubDatabase? = null
 
-    val formattedLeagueName = URLEncoder.encode(leagueName, "UTF-8")
-    val url = URL("https://www.thesportsdb.com/api/v1/json/1/search_all_teams.php?l=$formattedLeagueName")
-    val con: HttpURLConnection = url.openConnection() as HttpURLConnection
-
-    try {
-        withContext(Dispatchers.IO) {
-            val inputStream = con.inputStream
-            val response = inputStream.bufferedReader().use { it.readText() }
-            val jsonObject = JSONObject(response)
-
-            val teamsArray = jsonObject.getJSONArray("teams")
-
-            val database = Room.databaseBuilder(
-                context.applicationContext,
-                ClubDatabase::class.java, "club-database"
-            ).build()
-
-            val clubDao = database.clubDao()
-
-            for (i in 0 until teamsArray.length()) {
-                val team = teamsArray.getJSONObject(i)
-                val club = Club(
-                    id = team.getString("idTeam"),
-                    name = team.getString("strTeam"),
-                    shortName = team.getString("strTeamShort"),
-                    alternateNames = team.getString("strAlternate"),
-                    formedYear = team.getString("intFormedYear"),
-                    league = team.getString("strLeague"),
-                    stadium = team.getString("strStadium"),
-                    keywords = team.getString("strKeywords"),
-                    stadiumLocation = team.getString("strStadiumLocation"),
-                    stadiumCapacity = team.getString("intStadiumCapacity"),
-                    website = team.getString("strWebsite"),
-                    teamJersey = team.getString("strTeamJersey"),
-                    teamLogo = team.getString("strTeamLogo")
-                )
-                clubDao.insert(club)
+        fun getDatabase(context: Context): ClubDatabase{
+            return INSTANCE?: synchronized(this){
+                val instance = Room.databaseBuilder(
+                    context.applicationContext,
+                    ClubDatabase::class.java,
+                    "clubs_by_league.db"
+                ).build()
+                INSTANCE = instance
+                instance
             }
         }
-    } catch (e: JSONException) {
-        Log.e("SaveClubsToDatabase", "Error parsing JSON: ${e.message}")
-    } catch (e: Exception) {
-        Log.e("SaveClubsToDatabase", "Error occurred: ${e.message}")
-    } finally {
-        con.disconnect()
     }
+}
+
+suspend fun parseClubInfo(clubInfo: String): List<Club> {
+    val clubsList = mutableListOf<Club>()
+
+    // Split the clubInfo string into individual club information
+    val clubsInfoArray = clubInfo.split("\n\n")
+
+    for (clubInfoEntry in clubsInfoArray) {
+        // Split each club information into lines
+        val lines = clubInfoEntry.split("\n")
+
+        // Extract club details from each line
+        var id = ""
+        var name = ""
+        var shortName = ""
+        var alternateNames = ""
+        var formedYear = ""
+        var league = ""
+        var stadium = ""
+        var keywords = ""
+        var stadiumLocation = ""
+        var stadiumCapacity = ""
+        var website = ""
+        var teamJersey = ""
+        var teamLogo = ""
+
+        for (line in lines) {
+            val parts = line.split(": ")
+            if (parts.size == 2) {
+                val key = parts[0].trim()
+                val value = parts[1].trim()
+
+                when (key) {
+                    "Club Name" -> name = value
+                    "Short Name" -> shortName = value
+                    "Alternate Names" -> alternateNames = value
+                    "Formed Year" -> formedYear = value
+                    "League" -> league = value
+                    "Stadium" -> stadium = value
+                    "Keywords" -> keywords = value
+                    "Stadium Location" -> stadiumLocation = value
+                    "Stadium Capacity" -> stadiumCapacity = value
+                    "Website" -> website = value
+                    "Team Jersey" -> teamJersey = value
+                    "Team Logo" -> teamLogo = value
+                }
+            }
+        }
+
+        // Generate a unique ID for the club (you can use UUID.randomUUID().toString())
+        id = "$name-$league"
+
+        // Create a Club object and add it to the list
+        val club = Club(
+            id,
+            name,
+            shortName,
+            alternateNames,
+            formedYear,
+            league,
+            stadium,
+            keywords,
+            stadiumLocation,
+            stadiumCapacity,
+            website,
+            teamJersey,
+            teamLogo
+        )
+        clubsList.add(club)
+    }
+
+    return clubsList
 }
