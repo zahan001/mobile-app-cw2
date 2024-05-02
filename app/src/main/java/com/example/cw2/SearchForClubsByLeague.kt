@@ -228,6 +228,9 @@ interface ClubDao {
 
     @Query("SELECT * FROM clubs WHERE id = :id")
     suspend fun getClubById(id: String): Club?
+
+    @Query("SELECT * FROM clubs WHERE LOWER (name) LIKE '%' || :searchText || '%' OR LOWER (league) LIKE '%' || LOWER(:searchText) || '%'")
+    suspend fun searchClubs(searchText: String): List<Club>
 }
 
 
