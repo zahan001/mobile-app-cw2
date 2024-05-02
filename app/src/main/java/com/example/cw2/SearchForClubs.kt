@@ -5,7 +5,10 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material3.Button
@@ -55,16 +58,21 @@ fun SearchScreen(database: AppDatabase) {
     var searchText by remember { mutableStateOf("") }
     var searchResult by remember { mutableStateOf<List<Club>>(emptyList()) }
     val scope = rememberCoroutineScope()
+    var showError by remember { mutableStateOf(false) }
 
     Column(
         modifier = Modifier.fillMaxSize(),
-        horizontalAlignment = Alignment.CenterHorizontally
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center
     ) {
         OutlinedTextField(
             value = searchText,
             onValueChange = { searchText = it },
-            label = { Text("Enter Search Text") }
+            label = { Text("Enter Search Text") },
+            modifier = Modifier.fillMaxWidth()
         )
+
+        Spacer(modifier = Modifier.height(16.dp))
 
         Button(
             onClick = {
@@ -75,6 +83,8 @@ fun SearchScreen(database: AppDatabase) {
         ) {
             Text("Search")
         }
+
+        Spacer(modifier = Modifier.height(16.dp))
 
         Column {
             searchResult.forEach { club ->

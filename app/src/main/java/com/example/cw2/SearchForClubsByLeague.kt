@@ -231,6 +231,9 @@ interface ClubDao {
 
     @Query("SELECT * FROM clubs WHERE LOWER (name) LIKE '%' || :searchText || '%' OR LOWER (league) LIKE '%' || LOWER(:searchText) || '%'")
     suspend fun searchClubs(searchText: String): List<Club>
+
+    @Query("SELECT teamLogo FROM clubs") // method to get club logo URLs
+    suspend fun getAllClubLogoUrls(): List<String>
 }
 
 
