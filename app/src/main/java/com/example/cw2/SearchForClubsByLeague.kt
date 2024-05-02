@@ -62,7 +62,7 @@ class SearchForClubsByLeague : ComponentActivity() {
         super.onCreate(savedInstanceState)
 
         // Initialize the database
-        val database = ClubDatabase.getDatabase(applicationContext)
+        val database = AppDatabase.getDatabase(applicationContext)
 
         setContent {
             GUI(database)
@@ -75,7 +75,7 @@ class SearchForClubsByLeague : ComponentActivity() {
  */
 
 @Composable
-fun GUI(database: ClubDatabase) {
+fun GUI(database: AppDatabase) {
     var clubInfoDisplay by rememberSaveable { mutableStateOf("") }
     var leagueName by rememberSaveable { mutableStateOf("") }
     val scope = rememberCoroutineScope()
@@ -84,15 +84,13 @@ fun GUI(database: ClubDatabase) {
         modifier = Modifier.fillMaxSize(),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        // Text field to enter the football league name
         TextField(
             value = leagueName,
             onValueChange = { leagueName = it },
             label = { Text("Enter Football League Name") },
         )
-        // Row containing buttons of Retrieve clubs and Save Clubs to Database
         Row {
-            Button(onClick = {  // Button to retrieve clubs
+            Button(onClick = {
                 scope.launch {
                     clubInfoDisplay = fetchClubs(leagueName)
                 }
@@ -100,8 +98,7 @@ fun GUI(database: ClubDatabase) {
                 Text("Retrieve Clubs")
             }
 
-
-            val context = LocalContext.current // Retrieve the context
+            val context = LocalContext.current
 
             Button(onClick = {
                 scope.launch {
@@ -120,7 +117,6 @@ fun GUI(database: ClubDatabase) {
                 Text("Save Clubs to Database")
             }
         }
-        // Text to display club information
         Text(
             modifier = Modifier.verticalScroll(rememberScrollState()),
             text = clubInfoDisplay
@@ -235,7 +231,7 @@ interface ClubDao {
 }
 
 
-@Database(entities = [Club::class], version = 1)
+/*@Database(entities = [Club::class], version = 1)
 abstract class ClubDatabase : RoomDatabase() {
     abstract fun clubDao(): ClubDao
 
@@ -255,7 +251,7 @@ abstract class ClubDatabase : RoomDatabase() {
             }
         }
     }
-}
+}*/
 
 suspend fun parseClubInfo(clubInfo: String): List<Club> {
     val clubsList = mutableListOf<Club>()
