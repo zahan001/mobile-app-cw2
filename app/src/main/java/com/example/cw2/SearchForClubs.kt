@@ -7,6 +7,7 @@ import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -19,6 +20,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
@@ -74,14 +76,15 @@ fun SearchScreen(database: AppDatabase) {
     var searchResult by rememberSaveable { mutableStateOf<List<Club>>(emptyList()) }
     val scope = rememberCoroutineScope()
     var showError by rememberSaveable { mutableStateOf(false) }
-    val context = LocalContext.current
+    //val context = LocalContext.current
+    var errorMessage by rememberSaveable { mutableStateOf<String?>(null) } // Error message
 
     Column(
         modifier = Modifier.fillMaxSize(),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
     ) {
-        OutlinedTextField(
+        OutlinedTextField( // Text field for entering search text
             value = searchText,
             onValueChange = { searchText = it },
             label = { Text("Enter Search Text") },
@@ -90,11 +93,19 @@ fun SearchScreen(database: AppDatabase) {
 
         Spacer(modifier = Modifier.height(16.dp))
 
+        // Button for start search
         Button(
             onClick = {
-                scope.launch {
-                    searchResult = searchClubs(database, searchText)
-                    showError = searchResult.isEmpty()
+                if (searchText.isNotEmpty()) { // Check if search text is not empty
+                    scope.launch {
+                        searchResult = searchClubs(database, searchText)
+                        showError = searchResult.isEmpty()
+                        errorMessage = if (showError) "No results found."
+                        else null
+                    }
+                } else {
+                    // set error message if search text is empty
+                    errorMessage = "Please insert a search term!"
                 }
             }
         ) {
@@ -103,13 +114,23 @@ fun SearchScreen(database: AppDatabase) {
 
         Spacer(modifier = Modifier.height(16.dp))
 
-        if (showError) {
+        errorMessage?.let {
+            // Display error message
+            Text(
+                it,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.fillMaxWidth(),
+                color = Color.Black
+            )
+        }
+
+        if (showError) { // Show a message if there is no results found
             Text(
                 "No results found.",
                 textAlign = TextAlign.Center,
                 modifier = Modifier.fillMaxWidth()
             )
-        } else {
+        } else { // Display search results in a lazy column
             LazyColumn {
                 items(searchResult) { club ->
                     ClubListItem(club = club, database = database)
@@ -120,6 +141,7 @@ fun SearchScreen(database: AppDatabase) {
     }
 }
 
+// composable function to represent each item in the list of search results
 @Composable
 fun ClubListItem(club: Club, database: AppDatabase) {
     var clubLogo by rememberSaveable { mutableStateOf<Bitmap?>(null) }
@@ -146,26 +168,32 @@ fun ClubListItem(club: Club, database: AppDatabase) {
         Text(errorMessage, color = Color.Red, modifier = Modifier.padding(vertical = 8.dp))
     }
 
-    Row(verticalAlignment = Alignment.CenterVertically) {
+    Row(verticalAlignment = Alignment.CenterVertically,
+        modifier = Modifier
+            .padding(8.dp)
+            .border(width = 1.dp, color = Color.Gray, shape = RoundedCornerShape(
+                4.dp))
+            .padding(8.dp)
+            .fillMaxWidth()) {
         clubLogo?.let {
             Image(
                 bitmap = it.asImageBitmap(),
                 contentDescription = "Club Logo",
-                modifier = Modifier.size(24.dp) // Set the size to a thumbnail size
+                modifier = Modifier.size(48.dp) // Set the size of logo to show
             )
             Spacer(modifier = Modifier.width(8.dp))
         }
-        Text(club.name, modifier = Modifier
+        Text(club.name, modifier = Modifier // displays the club name along with its logo in a row
             .weight(1f)
             .padding(vertical = 8.dp))
     }
 }
 
-
+// Function to fetching a bitmap from a given URL asynchronously
 suspend fun fetchBitmapFromUrl(url: String): Bitmap {
     return withContext(Dispatchers.IO) {
         val inputStream = URL(url).openStream()
-        BitmapFactory.decodeStream(inputStream)
+        BitmapFactory.decodeStream(inputStream) // opens an input stream from the URL and decodes it into a bitmap using BitmapFactory.
     }
 }
 /*
@@ -210,8 +238,9 @@ fun SearchScreen(database: AppDatabase) {
     }
 }*/
 
+// Function to search the database for clubs based on the provided search text.
 suspend fun searchClubs(database: AppDatabase, searchText: String): List<Club> {
-    return withContext(Dispatchers.IO) {
+    return withContext(Dispatchers.IO) { //  performs the database query in the IO dispatcher to avoid blocking the main thread
         database.clubDao().searchClubs(searchText)
     }
 }
