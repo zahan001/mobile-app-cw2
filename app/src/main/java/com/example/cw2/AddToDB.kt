@@ -3,6 +3,7 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.material3.Text
+import androidx.compose.ui.graphics.Color
 import androidx.lifecycle.lifecycleScope
 import kotlinx.coroutines.launch
 
@@ -55,7 +56,8 @@ class AddToDB : ComponentActivity() {
         }
 
         setContent {
-            Text(text = "Hello, Added data to local database!")
+            Text(text = "Hello, Added data to local database!",
+                color = Color.Green)
         }
     }
 }

@@ -197,7 +197,7 @@ suspend fun fetchClubs(leagueName: String): String {
 
     return allClubs.toString()
 }*/
-
+// Entity class for Clubs
 @Entity(tableName = "clubs")
 data class Club(
     @PrimaryKey val id: String,
@@ -229,11 +229,12 @@ interface ClubDao {
     @Query("SELECT * FROM clubs WHERE id = :id")
     suspend fun getClubById(id: String): Club?
 
+    // Method to search clubs based on search
     @Query("SELECT * FROM clubs WHERE LOWER (name) LIKE '%' || :searchText || '%' OR LOWER (league) LIKE '%' || LOWER(:searchText) || '%'")
     suspend fun searchClubs(searchText: String): List<Club>
 
-    @Query("SELECT teamLogo FROM clubs") // method to get club logo URLs
-    suspend fun getAllClubLogoUrls(): List<String>
+    @Query("SELECT teamLogo FROM clubs WHERE LOWER(name) = LOWER(:clubName)")
+    suspend fun getClubLogoUrl(clubName: String): String?
 }
 
 
@@ -307,7 +308,7 @@ suspend fun parseClubInfo(clubInfo: String): List<Club> {
             }
         }
 
-        // Generate a unique ID for the club (you can use UUID.randomUUID().toString())
+        // Generate a unique ID for the club
         id = "$name-$league"
 
         // Create a Club object and add it to the list
