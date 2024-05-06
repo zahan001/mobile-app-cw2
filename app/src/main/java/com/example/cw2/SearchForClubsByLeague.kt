@@ -76,21 +76,24 @@ class SearchForClubsByLeague : ComponentActivity() {
 
 @Composable
 fun GUI(database: AppDatabase) {
+    // State to hold the displayed club information
     var clubInfoDisplay by rememberSaveable { mutableStateOf("") }
+    // State to hold the entered league name
     var leagueName by rememberSaveable { mutableStateOf("") }
+    // Coroutine scope to launch asynchronous tasks
     val scope = rememberCoroutineScope()
 
     Column(
         modifier = Modifier.fillMaxSize(),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        TextField(
+        TextField( // Text field for entering the football league name
             value = leagueName,
             onValueChange = { leagueName = it },
             label = { Text("Enter Football League Name") },
         )
         Row {
-            Button(onClick = {
+            Button(onClick = { // Button to retrieve clubs based on the entered league name
                 scope.launch {
                     clubInfoDisplay = fetchClubs(leagueName)
                 }
@@ -98,9 +101,9 @@ fun GUI(database: AppDatabase) {
                 Text("Retrieve Clubs")
             }
 
-            val context = LocalContext.current
+            val context = LocalContext.current  // Get the current context
 
-            Button(onClick = {
+            Button(onClick = { // Button to save retrieved clubs to the database
                 scope.launch {
                     val clubsList = parseClubInfo(clubInfoDisplay)
                     if (clubsList.isNotEmpty()){
@@ -117,13 +120,14 @@ fun GUI(database: AppDatabase) {
                 Text("Save Clubs to Database")
             }
         }
+        // Text composable to display the fetched club information
         Text(
             modifier = Modifier.verticalScroll(rememberScrollState()),
             text = clubInfoDisplay
         )
     }
 }
-
+// Function to fetch clubs based on the entered league name
 suspend fun fetchClubs(leagueName: String): String {
     if (leagueName.isEmpty()) { // Check if the league name is empty
         return "Please enter a football league name."
@@ -214,7 +218,7 @@ data class Club(
     val teamJersey: String,
     val teamLogo: String
 )
-
+// DAO interface for Club Entity
 @Dao
 interface ClubDao {
     @Query("SELECT * FROM clubs")
@@ -260,6 +264,7 @@ abstract class ClubDatabase : RoomDatabase() {
     }
 }*/
 
+// Function to parse club information and convert it to a list of Club objects
 suspend fun parseClubInfo(clubInfo: String): List<Club> {
     val clubsList = mutableListOf<Club>()
 

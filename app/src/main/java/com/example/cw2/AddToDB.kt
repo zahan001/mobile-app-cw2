@@ -8,6 +8,7 @@ import androidx.lifecycle.lifecycleScope
 import kotlinx.coroutines.launch
 
 
+
 class AddToDB : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -50,7 +51,7 @@ class AddToDB : ComponentActivity() {
         // Get the LeagueDao instance
         val leagueDao = database.leagueDao()
 
-        // Insert the hardcoded leagues into the database
+        // Insert the leagues into the local database
         lifecycleScope.launch {
             leagueDao.insertAll(hardcodedLeagues)
         }

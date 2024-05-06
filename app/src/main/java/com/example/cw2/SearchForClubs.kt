@@ -56,11 +56,12 @@ import java.net.URL
 
 class SearchForClubs : ComponentActivity() {
 
+    // Initialize the database
     private lateinit var database: AppDatabase
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        // Initialize the database
+        // Initialize the database instance
         database = AppDatabase.getDatabase(applicationContext)
 
         setContent {
@@ -72,11 +73,16 @@ class SearchForClubs : ComponentActivity() {
 
 @Composable
 fun SearchScreen(database: AppDatabase) {
+    // State to hold the search text entered by the user
     var searchText by rememberSaveable { mutableStateOf("") }
+    // State to hold the list of search results retrieved from the database
     var searchResult by rememberSaveable { mutableStateOf<List<Club>>(emptyList()) }
+    // Coroutine scope to launch asynchronous tasks
     val scope = rememberCoroutineScope()
+    // State to track whether an error occurred during the search
     var showError by rememberSaveable { mutableStateOf(false) }
     //val context = LocalContext.current
+    // Error message to display when no search results are found
     var errorMessage by rememberSaveable { mutableStateOf<String?>(null) } // Error message
 
     Column(
@@ -164,9 +170,9 @@ fun ClubListItem(club: Club, database: AppDatabase) {
     }
 
     // Display error message if there's an error
-    error?.let { errorMessage ->
-        Text(errorMessage, color = Color.Red, modifier = Modifier.padding(vertical = 8.dp))
-    }
+    //error?.let { errorMessage ->
+    //    Text(errorMessage, color = Color.Red, modifier = Modifier.padding(vertical = 8.dp))
+    //}
 
     Row(verticalAlignment = Alignment.CenterVertically,
         modifier = Modifier
